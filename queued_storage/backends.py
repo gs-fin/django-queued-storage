@@ -415,7 +415,7 @@ class QueuedS3BotoStorage(QueuedFileSystemStorage):
     the remote storage.
     """
 
-    def __init__(self, remote='storages.backends.s3boto.S3BotoStorage', *args, **kwargs):
+    def __init__(self, remote='storages.backends.s3boto3.S3Boto3Storage', *args, **kwargs):
         super(QueuedS3BotoStorage, self).__init__(remote=remote, *args, **kwargs)
 
 
