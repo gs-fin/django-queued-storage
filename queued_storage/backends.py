@@ -212,7 +212,7 @@ class QueuedStorage(object):
         """
         if cache_key is None:
             cache_key = self.get_cache_key(name)
-        return self.task.delay(name, cache_key, self.local, self.remote)
+        return self.task.delay(name, cache_key) # , self.local, self.remote
 
     def get_valid_name(self, name):
         """

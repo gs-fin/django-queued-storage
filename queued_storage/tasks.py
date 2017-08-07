@@ -1,4 +1,7 @@
+import six
+
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 
 from celery.task import Task
 
@@ -10,6 +13,7 @@ except ImportError:
 from .conf import settings
 from .signals import file_transferred
 from .utils import import_attribute
+from .backends import LazyBackend
 
 logger = get_task_logger(name=__name__)
 
@@ -60,7 +64,7 @@ class Transfer(Task):
     #: :attr:`~queued_storage.conf.settings.QUEUED_STORAGE_RETRY_DELAY`)
     default_retry_delay = settings.QUEUED_STORAGE_RETRY_DELAY
 
-    def run(self, name, cache_key, local, remote, **kwargs):
+    def run(self, name, cache_key, local='django.core.files.storage.FileSystemStorage', remote='storages.backends.s3boto3.S3Boto3Storage', **kwargs):
         """
         The main work horse of the transfer task. Calls the transfer
         method with the local and remote storage backends as given
@@ -82,12 +86,15 @@ class Transfer(Task):
         """
         result = self.transfer(name, local, remote, **kwargs)
 
+        _local = self._load_backend(local)
+        _remote = self._load_backend(remote)
+
         if result is True:
             cache.set(cache_key, True)
             file_transferred.send(sender=self.__class__,
-                                  name=name, local=local, remote=remote)
+                                  name=name, local=_local, remote=_remote)
         elif result is False:
-            args = [name, cache_key, local, remote]
+            args = [name, cache_key, _local, _remote]
             self.retry(args=args, kwargs=kwargs)
         else:
             raise ValueError("Task '%s' did not return True/False but %s" %
@@ -106,14 +113,30 @@ class Transfer(Task):
                   the task when returning `False`
         :rtype: bool
         """
+
+        _local = self._load_backend(local)
+        _remote = self._load_backend(remote)
+
         try:
-            remote.save(name, local.open(name))
+            _remote.save(name, _local.open(name))
             return True
         except Exception as e:
             logger.error("Unable to save '%s' to remote storage. "
                          "About to retry." % name)
             logger.exception(e)
             return False
+
+    def _load_backend(self, backend=None, options=None, handler=LazyBackend):
+        if backend is None:  # pragma: no cover
+            raise ImproperlyConfigured("The QueuedStorage class '%s' "
+                                       "doesn't define a needed backend." % (self))
+        if not isinstance(backend, six.string_types):
+            raise ImproperlyConfigured("The QueuedStorage class '%s' "
+                                       "requires its backends to be "
+                                       "specified as dotted import paths "
+                                       "not instances or classes" % self)
+        return handler(backend, options or {})
+
 
 
 class TransferAndDelete(Transfer):
