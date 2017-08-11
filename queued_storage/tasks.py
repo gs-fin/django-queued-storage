@@ -123,7 +123,11 @@ class Transfer(Task):
         except Exception as e:
             logger.error("Unable to save '%s' to remote storage. "
                          "About to retry." % name)
-            logger.exception(e)
+            try:
+                logger.exception(e)
+            except TypeError as e:
+                logger.exception('Could not raise exception, seems like JSON serialization problems.')
+
             return False
 
     def _load_backend(self, backend=None, options=None, handler=LazyBackend):
