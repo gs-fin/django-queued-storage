@@ -125,7 +125,7 @@ class Transfer(Task):
                          "About to retry." % name)
             try:
                 logger.exception(e)
-            except TypeError as e:
+            except Exception as e:
                 logger.exception('Could not raise exception, seems like JSON serialization problems.')
 
             return False
