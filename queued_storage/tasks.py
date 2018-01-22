@@ -151,7 +151,7 @@ class TransferAndDelete(Transfer):
     """
 
     def transfer(self, name, local, remote, **kwargs):
-        result = super(TransferAndDelete, self).transfer(name, local, remote, **kwargs)
+        result = super().transfer(name, local, remote, **kwargs)
 
         _local = self._load_backend(local)
 
